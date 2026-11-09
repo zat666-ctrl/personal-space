@@ -1,0 +1,138 @@
+.personal-space-auth-form {
+    display: grid;
+    gap: 10px;
+    max-width: 520px;
+}
+
+.personal-space-auth-actions,
+.personal-space-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.personal-space-status {
+    min-height: 1.25rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.personal-space-workspace {
+    display: grid;
+    grid-template-columns: minmax(220px, 28%) minmax(0, 1fr);
+    height: calc(100vh - 72px);
+    min-height: 0;
+}
+
+.personal-space-sidebar {
+    border-right: 1px solid var(--glass-border);
+    padding: 16px;
+    overflow: auto;
+}
+
+.personal-space-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    min-width: 0;
+    overflow: auto;
+}
+
+.personal-space-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.personal-space-list-item {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.personal-space-list-item:hover,
+.personal-space-list-item.active {
+    border-color: var(--accent-primary);
+    background: rgba(102, 126, 234, 0.16);
+}
+
+.personal-space-list-item small {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-secondary);
+}
+
+.personal-space-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 360px;
+    padding: 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.22);
+    color: var(--text-primary);
+    font: 15px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    resize: vertical;
+}
+
+.personal-space-preview {
+    min-height: 360px;
+    padding: 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.16);
+    overflow: auto;
+}
+
+.personal-space-file-list {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+    overflow: auto;
+}
+
+.personal-space-file-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: var(--glass-bg);
+}
+
+.personal-space-file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.personal-space-empty {
+    padding: 24px 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .personal-space-workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(150px, 32vh) minmax(0, 1fr);
+    }
+
+    .personal-space-sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--glass-border);
+    }
+
+    .personal-space-textarea,
+    .personal-space-preview {
+        min-height: 280px;
+    }
+}

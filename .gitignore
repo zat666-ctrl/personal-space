@@ -1,2 +1,7 @@
 .DS_Store
 dist/
+.local-backup/
+.evaluation/
+.env
+.env.local
+.env.*.local

@@ -1,84 +1,47 @@
-name: Deploy to Cloudflare Pages
-
-# Direct-upload deploy model: this workflow is the single deploy path for this
-# site, and the project's Cloudflare Git integration is off (§4 v2.31.0 —
-# a platform Git build deploys on merge and cannot be made to wait on a CI
-# status, so it can never be gated, only raced).
-#
-#   push to main   → production deployment
-#   pull_request   → preview deployment (branch alias)
-#
-# Without a CLOUDFLARE_API_TOKEN secret the deploy step skips green rather than
-# failing. That is deliberate: this file can land before the Git integration is
-# switched off, and the two can never run against the same commit.
-#
-# Secrets:
-#   CLOUDFLARE_API_TOKEN   Cloudflare Pages:Edit (cloudflare/token/<product>)
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Check for the deploy credential
-        id: gate
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build static site
         env:
-          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          if [ -z "$TOKEN" ]; then
-            echo "No CLOUDFLARE_API_TOKEN — skipping deploy (see the header)."
-            echo "ok=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ok=true" >> "$GITHUB_OUTPUT"
-          fi
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: node build.mjs
 
-      # No package.json here — the repo builds with a committed shell script,
-      # which is what Cloudflare's build was running too. The Firebase values
-      # used to live in the Pages project's build settings, which this deploy
-      # model no longer consults — they are inlined rather than put in secrets
-      # because a Firebase *web* config is public by design (it ships in the
-      # page to every visitor; access control is Auth authorized domains and
-      # Firestore rules), and an absent secret would silently ship a configless
-      # build again, which is exactly how production sign-in broke on 2026-08-10.
-      - name: Build
-        if: steps.gate.outputs.ok == 'true'
-        env:
-          FIREBASE_API_KEY: AIzaSyCgi-xp0KwaX8RsIDcqOk5HN3qg2v5dThI
-          FIREBASE_AUTH_DOMAIN: start-mykk-us.firebaseapp.com
-          FIREBASE_PROJECT_ID: start-mykk-us
-        run: bash build.sh
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
 
-      - name: Verify the Firebase config made it into the build
-        if: steps.gate.outputs.ok == 'true'
-        run: |
-          grep -q "apiKey: 'AIza" dist/index.html
-
-      # A runner only ever holds committed content, so --commit-dirty=false is
-      # honest here in a way hand-run `wrangler pages deploy` was not.
-      - name: Deploy to Cloudflare Pages
-        if: steps.gate.outputs.ok == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || '8a0d49b1f3fdcdadec135562ec8a4fdc' }}
-          DEPLOY_BRANCH: ${{ github.ref == 'refs/heads/main' && 'main' || github.head_ref }}
-          COMMIT_HASH: ${{ github.sha }}
-        run: >
-          npx wrangler@4 pages deploy dist
-          --project-name start-mykk-us
-          --branch "$DEPLOY_BRANCH"
-          --commit-hash "$COMMIT_HASH"
-          --commit-dirty=false
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

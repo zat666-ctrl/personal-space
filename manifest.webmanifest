@@ -1,7 +1,7 @@
 {
-  "name": "MyKK Dashboard",
-  "short_name": "MyKK",
-  "description": "A customizable browser start page with search, bookmarks, weather, calendar, notepad, stocks, and more.",
+  "name": "Personal Space",
+  "short_name": "Personal Space",
+  "description": "A private personal dashboard, Markdown knowledge base, and file library.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

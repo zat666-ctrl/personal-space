@@ -42,10 +42,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Leaflet CSS for interactive maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Firebase SDK (Cloud Sync) -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <!-- Supabase SDK (authentication, sync, and private storage) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        window.PERSONAL_SPACE_CONFIG = {
+            url: '__SUPABASE_URL__',
+            publishableKey: '__SUPABASE_PUBLISHABLE_KEY__'
+        };
+    </script>
     <style>
         * {
             margin: 0;
@@ -4092,6 +4096,7 @@
         }
 
     </style>
+    <link rel="stylesheet" href="personal-space.css">
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -4305,6 +4310,16 @@
                 <button class="action-btn" id="notepad-btn" title="Notepad" aria-label="Open notepad">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </button>
+                <button class="action-btn" id="knowledge-btn" title="Knowledge Base" aria-label="Open knowledge base">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V5a2 2 0 00-2-2H6.5A2.5 2.5 0 004 5.5v14z"></path>
+                    </svg>
+                </button>
+                <button class="action-btn" id="files-btn" title="Private Files" aria-label="Open private files">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"></path>
                     </svg>
                 </button>
                 <button class="action-btn hidden" id="sounds-btn" title="Ambient Sounds" aria-label="Ambient sounds mixer">
@@ -4558,18 +4573,23 @@
 
             <div class="settings-page-content">
 
-                <!-- Cloud Sync (Google / Firebase) -->
+                <!-- Cloud Sync (Supabase) -->
                 <div class="settings-section" id="section-cloud">
-                    <h3 class="settings-section-title">Cloud Sync (Google / Firebase)</h3>
+                    <h3 class="settings-section-title">Personal Space Cloud</h3>
 
                     <div class="cloud-sync-status" id="cloud-sync-status">
                         <div class="cloud-sync-signed-out" id="cloud-signed-out">
-                            <p class="settings-help" style="margin-bottom: 16px;">Sign in with Google to sync your settings across devices.</p>
-                            <button class="settings-action-btn cloud-signin-btn" id="cloud-signin-btn">
-                                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                                Sign in with Google
-                            </button>
-                            <p class="settings-help" style="margin-top: 12px;">Signing in is optional. The dashboard works great without it. The benefit of signing in is that your settings automatically follow you across all devices logged into your account. You can also use Export and Import in the Data section below to manually transfer settings between devices.</p>
+                            <p class="settings-help" style="margin-bottom: 16px;">Sign in with email and password to sync navigation, notes, and private files across devices.</p>
+                            <div class="personal-space-auth-form">
+                                <input class="settings-input" id="cloud-email" type="email" autocomplete="email" placeholder="Email address" aria-label="Email address">
+                                <input class="settings-input" id="cloud-password" type="password" autocomplete="current-password" minlength="8" placeholder="Password (8+ characters)" aria-label="Password">
+                                <div class="personal-space-auth-actions">
+                                    <button class="settings-action-btn cloud-signin-btn" id="cloud-signin-btn">Sign In</button>
+                                    <button class="settings-action-btn" id="cloud-signup-btn">Create Account</button>
+                                </div>
+                                <div class="personal-space-status" id="cloud-auth-message" role="status"></div>
+                            </div>
+                            <p class="settings-help" style="margin-top: 12px;">Private data is stored in Supabase and restricted to your user account by Row Level Security.</p>
                         </div>
                         <div class="cloud-sync-signed-in hidden" id="cloud-signed-in">
                             <div class="cloud-user-info">
@@ -4584,13 +4604,13 @@
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                                     </svg>
-                                    Push to Cloud
+                                    Save to Cloud
                                 </button>
                                 <button class="settings-action-btn" id="cloud-pull-btn">
                                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
                                     </svg>
-                                    Pull from Cloud
+                                    Load from Cloud
                                 </button>
                                 <button class="settings-action-btn cloud-signout-btn" id="cloud-signout-btn">
                                     Sign Out
@@ -5322,6 +5342,52 @@
             <textarea id="notepad-textarea" placeholder="Start typing your notes here..." aria-label="Notes"></textarea>
             <div id="notepad-richtext" contenteditable="true" class="notepad-richtext" style="display:none;" aria-label="Rich text notes"></div>
             <div id="notepad-md-preview" class="notepad-md-preview" style="display:none;" aria-label="Markdown preview"></div>
+        </div>
+    </div>
+
+    <!-- Supabase-backed Markdown Knowledge Base -->
+    <div class="lightbox" id="knowledge-lightbox" role="dialog" aria-modal="true" aria-label="Knowledge base">
+        <div class="lightbox-header">
+            <span class="lightbox-title">📚 Knowledge Base</span>
+            <div class="lightbox-tools">
+                <button class="tool-btn" id="knowledge-new">New</button>
+                <button class="tool-btn" id="knowledge-save">Save</button>
+                <button class="tool-btn" id="knowledge-edit-btn">Edit</button>
+                <button class="tool-btn" id="knowledge-preview-btn">Preview</button>
+                <button class="tool-btn" id="knowledge-delete">Delete</button>
+            </div>
+            <button class="lightbox-close" id="close-knowledge" aria-label="Close knowledge base">✕ Close</button>
+        </div>
+        <div class="personal-space-workspace">
+            <aside class="personal-space-sidebar">
+                <input class="settings-input" id="knowledge-search" type="search" placeholder="Search notes…" aria-label="Search notes">
+                <div class="personal-space-list" id="knowledge-list"></div>
+            </aside>
+            <section class="personal-space-editor">
+                <input class="settings-input" id="knowledge-title" maxlength="200" placeholder="Note title" aria-label="Note title">
+                <input class="settings-input" id="knowledge-tags" placeholder="Tags, separated by commas" aria-label="Note tags">
+                <textarea class="personal-space-textarea" id="knowledge-content" placeholder="# Markdown note" aria-label="Markdown note content"></textarea>
+                <div class="personal-space-preview notepad-md-preview hidden" id="knowledge-preview"></div>
+                <div class="personal-space-status" id="knowledge-status" role="status"></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Supabase Private Storage Manager -->
+    <div class="lightbox" id="files-lightbox" role="dialog" aria-modal="true" aria-label="Private files">
+        <div class="lightbox-header">
+            <span class="lightbox-title">🔒 Private Files</span>
+            <div class="lightbox-tools">
+                <label class="tool-btn" for="file-upload-input" style="cursor: pointer;">Upload</label>
+                <input id="file-upload-input" type="file" multiple hidden>
+            </div>
+            <button class="lightbox-close" id="close-files" aria-label="Close private files">✕ Close</button>
+        </div>
+        <div class="personal-space-editor" style="height: calc(100vh - 72px);">
+            <input class="settings-input" id="file-search" type="search" placeholder="Search files…" aria-label="Search files">
+            <small class="settings-help" style="display: block; margin: -4px 0 8px;">All file types are supported. Maximum 50 MB per file.</small>
+            <div class="personal-space-status" id="file-status" role="status"></div>
+            <div class="personal-space-file-list" id="file-list"></div>
         </div>
     </div>
 
@@ -11340,5 +11406,6 @@
             });
         }
     </script>
+    <script src="personal-space.js"></script>
 </body>
 </html>

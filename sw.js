@@ -9,7 +9,7 @@
  *     instantly while a fresh copy is fetched in the background for next time.
  *   - A short allowlist of static CDN hosts (fonts, Leaflet, Firebase SDK,
  *     jsPDF) is runtime-cached the same way so the app boots offline.
- *   - Everything else (weather API, map tiles, Firestore sync, favicons for
+ *   - Everything else (weather API, map tiles, Supabase sync, favicons for
  *     bookmarks, etc.) is passed straight through to the network so dynamic
  *     data is never served stale.
  *
@@ -17,7 +17,7 @@
  * purged on activate.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'personal-space-v4';
 const SHELL_CACHE = 'mykk-shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'mykk-runtime-' + CACHE_VERSION;
 
@@ -28,6 +28,8 @@ const SHELL_ASSETS = [
     './manifest.webmanifest',
     './favicon.svg',
     './favicon.png',
+    './personal-space.css',
+    './personal-space.js',
 ];
 
 // Cross-origin hosts whose static assets are safe to cache for offline boot.
@@ -35,7 +37,7 @@ const STATIC_HOSTS = [
     'fonts.googleapis.com',
     'fonts.gstatic.com',
     'unpkg.com',            // Leaflet
-    'www.gstatic.com',      // Firebase SDK
+    'cdn.jsdelivr.net',     // Supabase SDK and dashboard icons
     'cdnjs.cloudflare.com', // jsPDF and friends
 ];
 
