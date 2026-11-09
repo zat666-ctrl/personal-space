@@ -17,7 +17,7 @@
  * purged on activate.
  */
 
-const CACHE_VERSION = 'personal-space-v4';
+const CACHE_VERSION = 'personal-space-v5';
 const SHELL_CACHE = 'mykk-shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'mykk-runtime-' + CACHE_VERSION;
 

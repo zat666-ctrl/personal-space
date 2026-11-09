@@ -38,10 +38,33 @@
         const pageData = {};
         (settings.pages || []).forEach((page) => {
             const value = localStorage.getItem('dashboard-page-' + page.id);
-            if (!value) return;
-            try { pageData[page.id] = JSON.parse(value); } catch {}
+            let state = {};
+            try { state = value ? JSON.parse(value) : {}; } catch {}
+            state.deviceLayouts = {
+                desktop: readStoredLayout('desktop', page.id),
+                mobile: readStoredLayout('mobile', page.id)
+            };
+            pageData[page.id] = state;
         });
         return pageData;
+    }
+
+    function readStoredLayout(mode, pageId) {
+        try {
+            return JSON.parse(localStorage.getItem(`dashboard-widget-layout-v3-${mode}-${pageId}`) || 'null');
+        } catch {
+            return null;
+        }
+    }
+
+    function restoreDeviceLayouts(pageId, state) {
+        if (!state || !state.deviceLayouts) return;
+        ['desktop', 'mobile'].forEach((mode) => {
+            const layout = state.deviceLayouts[mode];
+            const key = `dashboard-widget-layout-v3-${mode}-${pageId}`;
+            if (layout) localStorage.setItem(key, JSON.stringify(layout));
+            else if (Object.prototype.hasOwnProperty.call(state.deviceLayouts, mode)) localStorage.removeItem(key);
+        });
     }
 
     function collectQuickNotes() {
@@ -89,6 +112,7 @@
         if (data.page_data && typeof data.page_data === 'object') {
             Object.entries(data.page_data).forEach(([pageId, state]) => {
                 localStorage.setItem('dashboard-page-' + pageId, JSON.stringify(state));
+                restoreDeviceLayouts(pageId, state);
             });
         }
         if (data.quick_notes) {
@@ -572,6 +596,7 @@
                 if (data.pageData) {
                     Object.entries(data.pageData).forEach(([id, state]) => {
                         localStorage.setItem('dashboard-page-' + id, JSON.stringify(state));
+                        restoreDeviceLayouts(id, state);
                     });
                 }
                 if (data.quickNotes) {

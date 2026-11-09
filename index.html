@@ -3092,10 +3092,14 @@
                 grid-row: auto !important;
             }
 
-            /* Always show drag handles on tablet/mobile (no hover) */
+            /* Mobile layout is automatic; desktop layout controls stay inactive. */
             .section-drag-handle {
-                opacity: 0.4;
-                pointer-events: auto;
+                display: none !important;
+                pointer-events: none !important;
+            }
+
+            [data-widget]::after {
+                display: none;
             }
         }
 
@@ -5146,6 +5150,12 @@
                         <input type="file" id="import-file" accept=".json">
                     </div>
                     <div style="margin-top: 12px;">
+                        <button class="settings-action-btn" id="reset-layout">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9M12 7v5l3 2"></path>
+                            </svg>
+                            Reset Layout
+                        </button>
                         <button class="settings-action-btn" id="reset-defaults" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -5579,7 +5589,15 @@
         };
 
         function applyWidgetSizes() {
-            const sizes = settings.widgetSizes || defaultSettings.widgetSizes;
+            if (!isDesktopLayout()) {
+                document.querySelectorAll('[data-widget]').forEach(el => {
+                    el.style.gridColumnEnd = '';
+                    el.style.gridRowEnd = '';
+                });
+                return;
+            }
+            const layout = readCurrentLayout();
+            const sizes = { ...defaultSettings.widgetSizes, ...(settings.widgetSizes || {}), ...(layout.sizes || {}) };
             Object.entries(sizes).forEach(([widget, size]) => {
                 const el = document.querySelector(`[data-widget="${widget}"]`);
                 if (el) {
@@ -6194,6 +6212,22 @@
             localStorage.removeItem('dashboard-widget-grid-v2');
             (settings.pages || []).forEach(p => localStorage.removeItem('dashboard-page-' + p.id));
             window.location.reload();
+        }
+
+        function resetCurrentLayout() {
+            const modeLabel = isDesktopLayout() ? 'desktop' : 'mobile';
+            if (!confirm(`Reset the ${modeLabel} layout for this page? Your content and cloud data will be kept.`)) return;
+            localStorage.removeItem(getLayoutStorageKey());
+            document.querySelectorAll('[data-widget]').forEach(el => {
+                el.style.order = '';
+                el.style.gridColumnStart = '';
+                el.style.gridRowStart = '';
+                el.style.gridColumnEnd = '';
+                el.style.gridRowEnd = '';
+            });
+            applyWidgetSizes();
+            saveSettings();
+            announce(`${modeLabel} layout reset`);
         }
 
         // ============ Date/Time ============
@@ -9862,7 +9896,46 @@
         const MIN_WIDGET_SIZE = 40; // px — matches single grid row height
         const GRID_COLS = 12;
         const ROW_HEIGHT = 40;
+        const MOBILE_LAYOUT_QUERY = '(max-width: 900px)';
         let resizeState = null;
+
+        function isDesktopLayout() {
+            return !window.matchMedia(MOBILE_LAYOUT_QUERY).matches;
+        }
+
+        function getLayoutStorageKey(mode = isDesktopLayout() ? 'desktop' : 'mobile', pageId = settings.activePage || 'default') {
+            return `dashboard-widget-layout-v3-${mode}-${pageId}`;
+        }
+
+        function readCurrentLayout() {
+            try {
+                return JSON.parse(localStorage.getItem(getLayoutStorageKey()) || '{}') || {};
+            } catch {
+                return {};
+            }
+        }
+
+        function collectWidgetSizes() {
+            const sizes = {};
+            document.querySelectorAll('[data-widget]').forEach(el => {
+                const cols = parseInt((el.style.gridColumnEnd.match(/span\s+(\d+)/) || [])[1]);
+                const rows = parseInt((el.style.gridRowEnd.match(/span\s+(\d+)/) || [])[1]);
+                if (cols || rows) {
+                    sizes[el.dataset.widget] = { cols: cols || 6, rows: rows || 2 };
+                }
+            });
+            return sizes;
+        }
+
+        function persistCurrentLayout() {
+            const widgets = Array.from(document.querySelectorAll('[data-widget]'));
+            const order = widgets
+                .sort((a, b) => (parseInt(a.style.order) || 0) - (parseInt(b.style.order) || 0))
+                .map(el => el.dataset.widget);
+            const layout = { order };
+            if (isDesktopLayout()) layout.sizes = collectWidgetSizes();
+            localStorage.setItem(getLayoutStorageKey(), JSON.stringify(layout));
+        }
 
         function getResizeEdges(widget, clientX, clientY) {
             const rect = widget.getBoundingClientRect();
@@ -9881,6 +9954,7 @@
         }
 
         function startWidgetResize(widget, edges, clientX, clientY) {
+            if (!isDesktopLayout()) return;
             const rect = widget.getBoundingClientRect();
             const dashboard = document.getElementById('main-dashboard');
             const dashRect = dashboard.getBoundingClientRect();
@@ -9931,12 +10005,7 @@
             if (!resizeState) return;
             const { widget, widgetId, snappedCols, snappedRows } = resizeState;
 
-            if (!settings.widgetSizes[widgetId]) {
-                settings.widgetSizes[widgetId] = { ...defaultSettings.widgetSizes[widgetId] || { cols: 6, rows: 2 } };
-            }
-            if (snappedCols !== undefined) settings.widgetSizes[widgetId].cols = snappedCols;
-            if (snappedRows !== undefined) settings.widgetSizes[widgetId].rows = snappedRows;
-
+            persistCurrentLayout();
             saveSettings();
             scaleDateTimeFonts();
 
@@ -9956,6 +10025,7 @@
 
             // Mouse cursor feedback
             dashboard.addEventListener('mousemove', (e) => {
+                if (!isDesktopLayout()) return;
                 if (resizeState) {
                     e.preventDefault();
                     moveWidgetResize(e.clientX, e.clientY);
@@ -9967,6 +10037,7 @@
 
             // Start resize on mousedown near edge
             dashboard.addEventListener('mousedown', (e) => {
+                if (!isDesktopLayout()) return;
                 const widget = e.target.closest('[data-widget]');
                 if (!widget) return;
                 // Don't resize if clicking a drag handle or interactive element
@@ -9992,6 +10063,7 @@
 
             // Touch resize support
             dashboard.addEventListener('touchstart', (e) => {
+                if (!isDesktopLayout()) return;
                 const touch = e.touches[0];
                 const widget = touch.target.closest('[data-widget]');
                 if (!widget) return;
@@ -10020,27 +10092,12 @@
         // ============ Section Reordering (Swap Style) ============
         let sectionDragState = null;
 
-        // Default grid positions are no longer used for initial layout.
-        // Widgets use grid-auto-flow: dense with only span sizes (no explicit positions).
-        // Positions are only set after user drags to reorder.
+        // Dense auto-flow plus order-based dragging keeps widgets packed without overlap.
         const defaultWidgetPositions = null;
 
         function saveWidgetPositions() {
-            // Merge with existing saved positions so hidden widgets keep theirs
-            let positions = {};
-            try {
-                const prev = localStorage.getItem('dashboard-widget-grid-v2');
-                if (prev) positions = JSON.parse(prev);
-            } catch {}
-            document.querySelectorAll('[data-widget]').forEach(el => {
-                if (el.style.gridColumnStart && el.style.gridRowStart) {
-                    positions[el.dataset.widget] = {
-                        col: parseInt(el.style.gridColumnStart) || 1,
-                        row: parseInt(el.style.gridRowStart) || 1
-                    };
-                }
-            });
-            localStorage.setItem('dashboard-widget-grid-v2', JSON.stringify(positions));
+            persistCurrentLayout();
+            saveSettings();
         }
 
         function loadWidgetPositions() {
@@ -10049,28 +10106,35 @@
             localStorage.removeItem('dashboard-widget-positions');
             localStorage.removeItem('dashboard-widget-positions-v2');
             localStorage.removeItem('dashboard-widget-grid');
-            const saved = localStorage.getItem('dashboard-widget-grid-v2');
-            if (saved) {
+            document.querySelectorAll('[data-widget]').forEach(el => {
+                el.style.gridColumnStart = '';
+                el.style.gridRowStart = '';
+                el.style.order = '';
+            });
+
+            let layout = readCurrentLayout();
+            if (isDesktopLayout() && !Array.isArray(layout.order)) {
                 try {
-                    const positions = JSON.parse(saved);
-                    applyWidgetPositions(positions);
-                } catch (e) {
-                    // Invalid saved data — let auto-flow handle layout
-                    clearWidgetPositions();
-                }
+                    const legacy = JSON.parse(localStorage.getItem('dashboard-widget-grid-v2') || '{}');
+                    const order = Object.entries(legacy)
+                        .sort(([, a], [, b]) => ((a.row || 0) - (b.row || 0)) || ((a.col || 0) - (b.col || 0)))
+                        .map(([id]) => id);
+                    if (order.length) {
+                        layout = { order, sizes: { ...(settings.widgetSizes || {}) } };
+                        localStorage.setItem(getLayoutStorageKey(), JSON.stringify(layout));
+                    }
+                } catch {}
             }
-            // No saved positions: auto-flow with dense packing handles layout
+            applyWidgetPositions(layout);
+            applyWidgetSizes();
         }
 
-        function applyWidgetPositions(positions) {
-            if (!positions) return;
+        function applyWidgetPositions(layout) {
+            if (!layout || !Array.isArray(layout.order)) return;
+            const orderById = new Map(layout.order.map((id, index) => [id, index + 1]));
             document.querySelectorAll('[data-widget]').forEach(el => {
-                const id = el.dataset.widget;
-                const pos = positions[id];
-                if (pos) {
-                    el.style.gridColumnStart = pos.col;
-                    el.style.gridRowStart = pos.row;
-                }
+                const order = orderById.get(el.dataset.widget);
+                if (order) el.style.order = order;
             });
         }
 
@@ -10100,8 +10164,9 @@
             document.querySelectorAll('[data-widget]').forEach(el => {
                 el.style.gridColumnStart = '';
                 el.style.gridRowStart = '';
+                el.style.order = '';
             });
-            localStorage.removeItem('dashboard-widget-grid-v2');
+            localStorage.removeItem(getLayoutStorageKey());
         }
 
         // Record positions of all widgets for FLIP animation
@@ -10148,6 +10213,7 @@
         }
 
         function handleSectionTouchStart(e) {
+            if (!isDesktopLayout()) return;
             e.preventDefault();
             const section = e.target.closest('[data-section]');
             if (!section) return;
@@ -10171,6 +10237,7 @@
         }
 
         function handleSectionMouseDown(e) {
+            if (!isDesktopLayout()) return;
             const section = e.target.closest('[data-section]');
             if (!section) return;
 
@@ -10190,9 +10257,10 @@
         }
 
         function startSectionDrag(section, clientX, clientY) {
-            // Materialize grid positions if widgets don't have explicit ones yet
-            // (first drag after fresh load with auto-flow layout)
-            ensureExplicitPositions();
+            if (!isDesktopLayout()) return;
+            Array.from(document.querySelectorAll('[data-widget]')).forEach((widget, index) => {
+                if (!widget.style.order) widget.style.order = index + 1;
+            });
 
             const rect = section.getBoundingClientRect();
 
@@ -10266,35 +10334,14 @@
 
                     const oldPositions = snapshotWidgetPositions();
 
-                    // Swap their explicit grid-column-start and grid-row-start
-                    const dragCol = draggedSection.style.gridColumnStart;
-                    const dragRow = draggedSection.style.gridRowStart;
-                    const targetCol = targetWidget.style.gridColumnStart;
-                    const targetRow = targetWidget.style.gridRowStart;
-
-                    draggedSection.style.gridColumnStart = targetCol;
-                    draggedSection.style.gridRowStart = targetRow;
-                    targetWidget.style.gridColumnStart = dragCol;
-                    targetWidget.style.gridRowStart = dragRow;
+                    const dragOrder = draggedSection.style.order;
+                    draggedSection.style.order = targetWidget.style.order;
+                    targetWidget.style.order = dragOrder;
 
                     flipAnimate(oldPositions);
                 }
-            } else if (!targetWidget || targetWidget === draggedSection) {
-                // Dragging over empty space — move widget to this grid cell
-                const cell = getGridCellFromPoint(clientX - offsetX, clientY - offsetY);
-                const cellKey = `${cell.col},${cell.row}`;
-
-                if (sectionDragState.lastFreeCell !== cellKey) {
-                    sectionDragState.lastFreeCell = cellKey;
-                    sectionDragState.lastSwapTarget = null;
-
-                    const oldPositions = snapshotWidgetPositions();
-
-                    draggedSection.style.gridColumnStart = cell.col;
-                    draggedSection.style.gridRowStart = cell.row;
-
-                    flipAnimate(oldPositions);
-                }
+            } else {
+                sectionDragState.lastSwapTarget = null;
             }
         }
 
@@ -11021,6 +11068,7 @@
                 if (e.target.files.length > 0) importSettings(e.target.files[0]);
             });
             document.getElementById('reset-defaults').addEventListener('click', resetToDefaults);
+            document.getElementById('reset-layout').addEventListener('click', resetCurrentLayout);
 
             // Shortcut modal
             const addShortcutBtn = document.getElementById('add-shortcut-btn');
@@ -11338,6 +11386,12 @@
             initSwipeGestures();
             initSectionDragDrop();
             initWidgetResize();
+            const layoutMedia = window.matchMedia(MOBILE_LAYOUT_QUERY);
+            layoutMedia.addEventListener('change', () => {
+                if (resizeState) endWidgetResize();
+                if (sectionDragState) endSectionDrag();
+                loadWidgetPositions();
+            });
             renderMiniCalendar();
             startAutoRefresh();
             scheduleMidnightRefresh();
