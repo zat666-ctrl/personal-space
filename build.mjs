@@ -1,5 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { buildSync } from 'esbuild';
 
 const root = resolve(import.meta.dirname);
 const dist = resolve(root, 'dist');
@@ -66,5 +68,20 @@ writeFileSync(gameConfig, 'window.PERSONAL_SPACE_CONFIG = ' + JSON.stringify({
     publishableKey
 }) + ';\n');
 
+const bundled = buildSync({
+    entryPoints: [resolve(root, 'games/suika/src/bootstrap.js')],
+    bundle: true, write: false, format: 'iife', platform: 'browser',
+    target: ['es2020'], minify: true, legalComments: 'inline',
+    banner: { js: 'try {\n' + readFileSync(resolve(root, 'games/suika/vendor/supabase-2.49.4.js'), 'utf8') + '\n} catch {}' }
+}).outputFiles[0].contents;
+const gameHash = createHash('sha256').update(bundled).digest('hex').slice(0, 12);
+const bundleName = 'app.' + gameHash + '.js';
+writeFileSync(resolve(dist, 'games/suika', bundleName), bundled);
+const gameIndex = resolve(dist, 'games/suika/index.html');
+writeFileSync(gameIndex, readFileSync(gameIndex, 'utf8')
+    .replaceAll('__SUIKA_BUNDLE__', bundleName)
+    .replace('<script src="./config.js"></script>', '<script>' + readFileSync(gameConfig, 'utf8') + '</script>'));
+const swPath = resolve(dist, 'sw.js');
+writeFileSync(swPath, readFileSync(swPath, 'utf8').replaceAll('__SUIKA_BUNDLE__', bundleName).replaceAll('__SUIKA_BUILD__', gameHash));
 console.log('Built Personal Space into dist/');
 

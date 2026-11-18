@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 const base = process.env.SUIKA_TEST_URL || 'http://127.0.0.1:4173/personal-space/';
 const executablePath = process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
-const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}), ...(process.env.SUIKA_TEST_PROXY ? { proxy: { server: process.env.SUIKA_TEST_PROXY } } : {}) });
 mkdirSync('.evaluation', { recursive: true });
 const report = [];
 const timeout = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -95,6 +95,19 @@ try {
         console.log(mode, 'offline passed');
         await Promise.race([context.close(), timeout(3000)]);
     }
+    const recovery = await browser.newContext();
+    let bundleAttempts = 0;
+    await recovery.route('**/app.*.js*', route => { if (++bundleAttempts === 1) return route.abort(); return route.continue(); });
+    const recovered = await recovery.newPage();
+    await recovered.goto(base + 'games/suika/');
+    await recovered.waitForFunction(() => window.SUIKA_READY === true);
+    assert.ok(bundleAttempts >= 2, 'failed first bundle request must recover automatically');
+    assert.equal(await recovered.locator('#load-state').isVisible(), false);
+    await recovered.locator('#game-fullscreen').click();
+    await recovered.waitForFunction(() => document.fullscreenElement?.id === 'game-shell' || document.querySelector('#game-shell').classList.contains('is-expanded'));
+    await recovered.locator('#game-fullscreen').click();
+    await Promise.race([recovery.close(), timeout(3000)]);
+    report.push({ startupAfterFailedRequest: 'pass', fullscreenAfterRecovery: 'pass' });
     const context = await browser.newContext(); const page = await context.newPage();
     // Existing dashboard smoke test: keep bookmarks/settings untouched.
     const errors = []; page.on('pageerror', error => errors.push(error.message));

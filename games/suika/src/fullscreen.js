@@ -1,5 +1,7 @@
 // Native fullscreen where available; a full-window layout on unsupported browsers.
 export function initFullscreen(element, button, doc = document) {
+    if (!element || !button) return;
+    button.disabled = false;
     const nativeElement = () => doc.fullscreenElement || doc.webkitFullscreenElement;
     const active = () => nativeElement() === element || element.classList.contains('is-expanded');
     const update = () => {

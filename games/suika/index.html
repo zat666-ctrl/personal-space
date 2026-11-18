@@ -11,9 +11,10 @@
 <div class="hud"><div class="score-card glass"><span>当前分数</span><strong id="score">0</strong></div><div class="score-card glass"><span>个人最高</span><strong id="best">0</strong></div><div class="next-card glass"><span>下一个</span><span id="next" aria-label="下一个水果">🍒</span></div></div>
 <div class="board-wrap glass" id="board-wrap">
 <canvas id="game" width="460" height="680" tabindex="0" aria-label="合成大西瓜游戏区。左右方向键瞄准，空格投放，P 暂停。">请使用支持 Canvas 的现代浏览器。</canvas>
+<div class="load-state" id="load-state" role="status"><p id="load-message">正在准备水果…</p><button id="retry-load" hidden>重新加载</button></div>
 <div class="board-overlay" id="overlay" hidden><div class="overlay-card"><span id="overlay-icon" aria-hidden="true">☕</span><h2 id="overlay-title">休息一下</h2><p id="overlay-description">水果会在这里等你。</p><button class="primary" id="resume">继续游戏</button></div></div>
 </div>
-<div class="controls"><button id="pause" aria-pressed="false">⏸ 暂停</button><button id="restart">↻ 重新开始</button><button id="mute" aria-pressed="false">♪ 声音开</button><button id="game-fullscreen" aria-pressed="false" aria-label="游戏全屏" title="游戏全屏">⛶ 全屏</button></div>
+<div class="controls"><button id="pause" aria-pressed="false" disabled>⏸ 暂停</button><button id="restart" disabled>↻ 重新开始</button><button id="mute" aria-pressed="false" disabled>♪ 声音开</button><button id="game-fullscreen" aria-pressed="false" aria-label="游戏全屏" title="游戏全屏" disabled>⛶ 全屏</button></div>
 <p class="game-message" id="game-message" role="status" aria-live="polite">移动瞄准，点击或松手投放。</p>
 <dialog id="restart-dialog"><h2>重新开始这一局？</h2><p>本局进度将清空，最高分会保留。</p><form method="dialog"><button value="cancel" autofocus>继续这一局</button><button class="primary" value="restart">重新开始</button></form></dialog>
 </section>
@@ -24,5 +25,30 @@
 <footer>基于 <a href="https://github.com/QuangLe1997/suika-merge" target="_blank" rel="noopener noreferrer">QuangLe1997 / suika-merge</a> · <a href="./THIRD_PARTY.md">MIT 许可与第三方声明</a> · Matter.js</footer>
 <noscript><p>请启用 JavaScript 以游玩。</p></noscript>
 </main>
-<script src="./config.js"></script><script src="./vendor/matter-0.20.0.min.js"></script><script src="./vendor/supabase-2.49.4.js"></script><script type="module" src="./src/main.js"></script>
+<script src="./config.js"></script>
+<script>
+(() => {
+    const loading = document.getElementById('load-state');
+    window.showSuikaLoadError = () => {
+        if (window.SUIKA_READY) return;
+        loading.hidden = false;
+        document.getElementById('load-message').textContent = '加载暂时中断，请重新加载。';
+        document.getElementById('retry-load').hidden = false;
+    };
+    document.getElementById('retry-load').onclick = () => location.reload();
+    window.addEventListener('error', () => { if (!window.SUIKA_READY) window.showSuikaLoadError(); });
+    let attempts = 0;
+    function load() {
+        const script = document.createElement('script');
+        script.src = './__SUIKA_BUNDLE__' + (attempts ? '?retry=' + attempts : '');
+        script.onerror = () => {
+            script.remove();
+            if (++attempts < 3) setTimeout(load, attempts * 500);
+            else window.showSuikaLoadError();
+        };
+        document.body.append(script);
+    }
+    load();
+})();
+</script>
 </body></html>

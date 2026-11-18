@@ -17,7 +17,7 @@
  * purged on activate.
  */
 
-const CACHE_VERSION = 'personal-space-v8-suika-fullscreen';
+const CACHE_VERSION = 'personal-space-v9-suika-boot-__SUIKA_BUILD__';
 const SHELL_CACHE = 'mykk-shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'mykk-runtime-' + CACHE_VERSION;
 
@@ -38,6 +38,7 @@ const SHELL_ASSETS = [
     './games/suika/index.html',
     './games/suika/style.css',
     './games/suika/config.js',
+    './games/suika/__SUIKA_BUNDLE__',
     './games/suika/vendor/matter-0.20.0.min.js',
     './games/suika/vendor/supabase-2.49.4.js',
     './games/suika/src/main.js',

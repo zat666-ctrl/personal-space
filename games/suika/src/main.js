@@ -2,7 +2,6 @@ import { SuikaGame, BOARD, STEP } from './game.js';
 import { FRUITS, MAX_LEVEL } from './config/fruits.js';
 import { ParticleSystem } from './effects/Particles.js';
 import { ScoreStore } from './scores.js';
-import { initFullscreen } from './fullscreen.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', { alpha: false });
@@ -15,9 +14,9 @@ let audio, game, accumulator = 0, lastFrame = performance.now(), dirty = true;
 let client = null;
 const config = window.PERSONAL_SPACE_CONFIG || {};
 if (config.url?.startsWith('https://') && config.publishableKey && !config.publishableKey.includes('__SUPABASE_') && window.supabase) {
-    client = window.supabase.createClient(config.url, config.publishableKey, {
+    try { client = window.supabase.createClient(config.url, config.publishableKey, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
-    });
+    }); } catch { /* Optional cloud initialization must never prevent local play. */ }
 }
 const scores = new ScoreStore({ storage, client, onChange: ({ best, message }) => {
     $('best').textContent = best; $('sync-status').textContent = message;
@@ -110,7 +109,6 @@ $('mute').addEventListener('click', () => {
     muteLabel();
 });
 muteLabel();
-initFullscreen($('game-shell'), $('game-fullscreen'));
 
 let pointerId = null;
 function aim(event) {
@@ -170,7 +168,7 @@ for (let level = 1; level <= MAX_LEVEL; level++) {
         c.save(); c.beginPath(); c.arc(128, 128, 125, 0, Math.PI * 2); c.clip();
         c.drawImage(image, 0, 0, 256, 256); c.restore(); dirty = true;
     };
-    image.src = new URL('../' + fruit.sprite, import.meta.url).href;
+    image.src = new URL(fruit.sprite, document.baseURI).href;
     const span = document.createElement('span'); span.textContent = fruit.emoji; span.title = fruit.name;
     if (level > 1) { const arrow = document.createElement('i'); arrow.textContent = '›'; $('fruit-chain').append(arrow); }
     $('fruit-chain').append(span);
@@ -229,7 +227,14 @@ function frame(now) {
         for (let i = popups.length - 1; i >= 0; i--) { const p = popups[i]; p.life -= delta / 1000; p.y -= delta * 0.04; if (p.life <= 0) popups.splice(i, 1); }
         dirty = true;
     }
-    if (dirty) { draw(game.paused || game.over ? 1 : accumulator / STEP); dirty = false; }
+    if (dirty) {
+        draw(game.paused || game.over ? 1 : accumulator / STEP); dirty = false;
+        if (!window.SUIKA_READY) {
+            window.SUIKA_READY = true;
+            for (const id of ['pause', 'restart', 'mute']) $(id).disabled = false;
+        }
+        const loading = $('load-state'); if (loading) loading.hidden = true;
+    }
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
