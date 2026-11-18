@@ -2,6 +2,7 @@ import { SuikaGame, BOARD, STEP } from './game.js';
 import { FRUITS, MAX_LEVEL } from './config/fruits.js';
 import { ParticleSystem } from './effects/Particles.js';
 import { ScoreStore } from './scores.js';
+import { initFullscreen } from './fullscreen.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game'), ctx = canvas.getContext('2d', { alpha: false });
@@ -109,6 +110,7 @@ $('mute').addEventListener('click', () => {
     muteLabel();
 });
 muteLabel();
+initFullscreen($('game-shell'), $('game-fullscreen'));
 
 let pointerId = null;
 function aim(event) {

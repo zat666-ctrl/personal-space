@@ -5,8 +5,8 @@
  *
  * Strategy:
  *   - App shell (same-origin: index.html, manifest, icons) is precached on
- *     install and served stale-while-revalidate — the cached copy renders
- *     instantly while a fresh copy is fetched in the background for next time.
+ *     install. Pages and same-origin scripts/styles use network-first so
+ *     a normal refresh receives current UI, with cached fallback offline.
  *   - A short allowlist of static CDN hosts (fonts, Leaflet, Firebase SDK,
  *     jsPDF) is runtime-cached the same way so the app boots offline.
  *   - Everything else (weather API, map tiles, Supabase sync, favicons for
@@ -17,7 +17,7 @@
  * purged on activate.
  */
 
-const CACHE_VERSION = 'personal-space-v7-suika-icon';
+const CACHE_VERSION = 'personal-space-v8-suika-fullscreen';
 const SHELL_CACHE = 'mykk-shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'mykk-runtime-' + CACHE_VERSION;
 
@@ -43,6 +43,7 @@ const SHELL_ASSETS = [
     './games/suika/src/main.js',
     './games/suika/src/game.js',
     './games/suika/src/scores.js',
+    './games/suika/src/fullscreen.js',
     './games/suika/src/config/fruits.js',
     './games/suika/src/entities/Fruit.js',
     './games/suika/src/entities/FruitFactory.js',
@@ -64,7 +65,9 @@ const STATIC_HOSTS = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(SHELL_CACHE)
-            .then((cache) => cache.addAll(SHELL_ASSETS))
+            .then((cache) => cache.addAll(SHELL_ASSETS.map(path =>
+                new Request(new URL(path, self.location.href), { cache: 'reload' })
+            )))
             .then(() => self.skipWaiting())
     );
 });
@@ -99,6 +102,22 @@ function staleWhileRevalidate(event, cacheName) {
     );
 }
 
+// Refresh UI immediately when online, retain the offline copy on network failure.
+async function networkFirst(event) {
+    const cache = await caches.open(SHELL_CACHE);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    try {
+        const response = await fetch(event.request, { cache: 'no-cache', signal: controller.signal });
+        if (response.ok) event.waitUntil(cache.put(event.request, response.clone()).catch(() => {}));
+        return response;
+    } catch {
+        return (await cache.match(event.request)) || Response.error();
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
 self.addEventListener('fetch', (event) => {
     const request = event.request;
 
@@ -106,6 +125,12 @@ self.addEventListener('fetch', (event) => {
     if (request.method !== 'GET') return;
 
     const url = new URL(request.url);
+
+    if (url.origin === self.location.origin &&
+        (request.mode === 'navigate' || /\.(?:html|js|css)$/.test(url.pathname))) {
+        event.respondWith(networkFirst(event));
+        return;
+    }
 
     // Navigations and same-origin shell assets.
     if (request.mode === 'navigate' || url.origin === self.location.origin) {

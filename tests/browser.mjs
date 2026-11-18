@@ -29,6 +29,28 @@ try {
         await page.waitForFunction(() => Number(document.querySelector('#score').textContent) >= 3);
         console.log(mode, 'merge passed');
         assert.ok(Number(await page.locator('#best').textContent()) >= 3);
+        const scoreBeforeFullscreen = await page.locator('#score').textContent();
+        await page.locator('#game-fullscreen').click();
+        await page.waitForFunction(() => document.fullscreenElement?.id === 'game-shell' || document.querySelector('#game-shell').classList.contains('is-expanded'));
+        assert.equal(await page.locator('#game-fullscreen').getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.locator('#score').textContent(), scoreBeforeFullscreen);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+        await page.screenshot({ path: '.evaluation/' + mode + '-fullscreen.png', fullPage: false });
+        await page.locator('#restart').click();
+        assert.equal(await page.locator('#restart-dialog').isVisible(), true);
+        await page.locator('#restart-dialog button[value="cancel"]').click();
+        await page.locator('#game-fullscreen').click();
+        await page.waitForFunction(() => !document.fullscreenElement && !document.querySelector('#game-shell').classList.contains('is-expanded'));
+        assert.equal(await page.locator('#game-fullscreen').getAttribute('aria-pressed'), 'false');
+        assert.equal(await page.locator('#score').textContent(), scoreBeforeFullscreen);
+        // Exercise browsers without the native Fullscreen API, including Escape exit.
+        await page.evaluate(() => Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: () => false }));
+        await page.locator('#game-fullscreen').click();
+        assert.equal(await page.locator('#game-shell').evaluate(element => element.classList.contains('is-expanded')), true);
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('#game-shell').evaluate(element => element.classList.contains('is-expanded')), false);
+        assert.equal(await page.locator('#score').textContent(), scoreBeforeFullscreen);
+        await page.evaluate(() => { delete document.fullscreenEnabled; });
         await page.locator('#pause').click();
         await page.waitForTimeout(100);
         assert.equal(await page.locator('#overlay').isVisible(), true);
@@ -78,6 +100,8 @@ try {
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await page.locator('.games-nav-link').waitFor();
+    assert.equal((await page.locator('.games-nav-link').textContent()).trim(), '🎮');
+    await page.locator('#actions-widget').screenshot({ path: '.evaluation/toolbar-icon-only.png' });
     assert.equal(await page.locator('#search-form').count(), 1);
     assert.equal(await page.locator('#knowledge-btn').count(), 1);
     assert.equal(await page.locator('#files-btn').count(), 1);
