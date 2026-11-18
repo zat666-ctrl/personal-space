@@ -25,6 +25,11 @@ const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 if (!supabaseUrl || !publishableKey) {
     throw new Error('SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required');
 }
+let publicKey = publishableKey.startsWith('sb_publishable_');
+if (!publicKey) {
+    try { publicKey = JSON.parse(Buffer.from(publishableKey.split('.')[1], 'base64url')).role === 'anon'; } catch {}
+}
+if (!publicKey) throw new Error('Only a Supabase publishable or legacy anon key may be included in the frontend');
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
@@ -41,11 +46,12 @@ const assets = [
     'sitemap.xml',
     'sitemap-index.xml',
     'personal-space.css',
-    'personal-space.js'
+    'personal-space.js',
+    'games'
 ];
 
 for (const asset of assets) {
-    cpSync(resolve(root, asset), resolve(dist, asset));
+    cpSync(resolve(root, asset), resolve(dist, asset), { recursive: true });
 }
 
 const indexPath = resolve(dist, 'index.html');
@@ -53,6 +59,12 @@ const html = readFileSync(indexPath, 'utf8')
     .replaceAll('__SUPABASE_URL__', supabaseUrl)
     .replaceAll('__SUPABASE_PUBLISHABLE_KEY__', publishableKey);
 writeFileSync(indexPath, html);
+
+const gameConfig = resolve(dist, 'games/suika/config.js');
+writeFileSync(gameConfig, 'window.PERSONAL_SPACE_CONFIG = ' + JSON.stringify({
+    url: supabaseUrl,
+    publishableKey
+}) + ';\n');
 
 console.log('Built Personal Space into dist/');
 

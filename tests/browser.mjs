@@ -1,0 +1,93 @@
+import { chromium, devices } from 'playwright';
+import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+const base = process.env.SUIKA_TEST_URL || 'http://127.0.0.1:4173/personal-space/';
+const executablePath = process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
+mkdirSync('.evaluation', { recursive: true });
+const report = [];
+const timeout = ms => new Promise(resolve => setTimeout(resolve, ms));
+try {
+    for (const mode of ['desktop', 'mobile']) {
+        const context = await browser.newContext(mode === 'mobile' ? { ...devices['iPhone 13'], serviceWorkers: 'allow' } : { viewport: { width: 1440, height: 1000 }, serviceWorkers: 'allow' });
+        await context.addInitScript(() => { Math.random = () => 0.02; });
+        const page = await context.newPage(), errors = [], failedAssets = [];
+        page.setDefaultTimeout(12000); page.setDefaultNavigationTimeout(20000);
+        console.log(mode, 'loading');
+        page.on('pageerror', error => errors.push(error.message));
+        page.on('response', response => { if (response.url().startsWith(base + 'games/') && response.status() >= 400) failedAssets.push(response.url()); });
+        await page.goto(base + 'games/suika/', { waitUntil: 'networkidle' });
+        await page.waitForFunction(() => document.querySelector('#fruit-chain').children.length === 21);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+        const board = page.locator('#game');
+        const drop = async () => {
+            const rect = await board.boundingBox();
+            if (mode === 'mobile') await page.touchscreen.tap(rect.x + rect.width / 2, rect.y + rect.height / 2);
+            else await board.click({ position: { x: rect.width / 2, y: rect.height / 2 } });
+        };
+        await drop(); await page.waitForTimeout(650); await drop();
+        await page.waitForFunction(() => Number(document.querySelector('#score').textContent) >= 3);
+        console.log(mode, 'merge passed');
+        assert.ok(Number(await page.locator('#best').textContent()) >= 3);
+        await page.locator('#pause').click();
+        await page.waitForTimeout(100);
+        assert.equal(await page.locator('#overlay').isVisible(), true);
+        const paused = await board.evaluate(canvas => canvas.toDataURL());
+        await page.waitForTimeout(350);
+        assert.equal(await board.evaluate(canvas => canvas.toDataURL()), paused, 'paused board must not animate');
+        await page.locator('#resume').click();
+        assert.equal(await page.locator('#overlay').isVisible(), false);
+        await page.locator('#mute').click(); assert.equal(await page.locator('#mute').getAttribute('aria-pressed'), 'true');
+        await page.locator('#restart').click(); assert.equal(await page.locator('#restart-dialog').isVisible(), true);
+        await page.locator('#restart-dialog button[value="cancel"]').click();
+        assert.ok(Number(await page.locator('#score').textContent()) >= 3);
+        await page.locator('#restart').click(); await page.locator('#restart-dialog button[value="restart"]').click();
+        await page.waitForFunction(() => document.querySelector('#score').textContent === '0');
+        assert.equal(await page.locator('#score').textContent(), '0');
+        assert.ok(Number(await page.locator('#best').textContent()) >= 3);
+        await board.focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('Space');
+        await page.waitForTimeout(400);
+        await page.keyboard.press('p'); assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'true');
+        await page.keyboard.press('p'); assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'false');
+        await page.screenshot({ path: '.evaluation/' + mode + '-game.png', fullPage: true });
+        console.log(mode, 'controls passed');
+        for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }, { width: 1280, height: 720 }]) {
+            await page.setViewportSize(viewport);
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'layout overflow ' + JSON.stringify(viewport));
+        }
+        await page.reload({ waitUntil: 'networkidle' });
+        assert.ok(Number(await page.locator('#best').textContent()) >= 3, 'local best survives reload');
+        assert.equal(await page.locator('#mute').getAttribute('aria-pressed'), 'true');
+        await page.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise((_, reject) => setTimeout(() => reject(Error('Service Worker not ready')), 12000))]));
+        await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+        console.log(mode, 'offline cache ready');
+        await context.setOffline(true);
+        await page.reload({ waitUntil: 'load' });
+        await page.waitForFunction(() => document.querySelector('#fruit-chain').children.length === 21);
+        assert.ok(Number(await page.locator('#best').textContent()) >= 3);
+        await drop(); await page.waitForTimeout(650); await drop();
+        await page.waitForFunction(() => Number(document.querySelector('#score').textContent) >= 3);
+        await context.setOffline(false);
+        assert.deepEqual(errors, []); assert.deepEqual(failedAssets, []);
+        report.push({ mode, collisionMergeScore: 'pass', pauseRestartMuteKeyboard: 'pass', resize: 'pass', offlineReloadPlaySave: 'pass', runtimeErrors: errors });
+        console.log(mode, 'offline passed');
+        await Promise.race([context.close(), timeout(3000)]);
+    }
+    const context = await browser.newContext(); const page = await context.newPage();
+    // Existing dashboard smoke test: keep bookmarks/settings untouched.
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    await page.goto(base, { waitUntil: 'domcontentloaded' });
+    await page.locator('.games-nav-link').waitFor();
+    assert.equal(await page.locator('#search-form').count(), 1);
+    assert.equal(await page.locator('#knowledge-btn').count(), 1);
+    assert.equal(await page.locator('#files-btn').count(), 1);
+    await page.locator('.games-nav-link').click();
+    await page.getByRole('link', { name: /合成大西瓜/ }).click();
+    await page.locator('#fruit-chain span').first().waitFor();
+    assert.ok(page.url().endsWith('/games/suika/'));
+    report.push({ dashboardNavigation: 'pass', existingControls: 'present', runtimeErrors: errors });
+    await Promise.race([context.close(), timeout(3000)]);
+    writeFileSync('.evaluation/browser-report.json', JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(report, null, 2));
+} finally { await Promise.race([browser.close(), timeout(3000)]); }
+process.exit(0);

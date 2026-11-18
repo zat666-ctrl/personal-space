@@ -17,7 +17,7 @@
  * purged on activate.
  */
 
-const CACHE_VERSION = 'personal-space-v5';
+const CACHE_VERSION = 'personal-space-v6-suika';
 const SHELL_CACHE = 'mykk-shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'mykk-runtime-' + CACHE_VERSION;
 
@@ -30,6 +30,26 @@ const SHELL_ASSETS = [
     './favicon.png',
     './personal-space.css',
     './personal-space.js',
+    './games/',
+    './games/index.html',
+    './games/shared.css',
+    './games/theme.js',
+    './games/suika/',
+    './games/suika/index.html',
+    './games/suika/style.css',
+    './games/suika/config.js',
+    './games/suika/vendor/matter-0.20.0.min.js',
+    './games/suika/vendor/supabase-2.49.4.js',
+    './games/suika/src/main.js',
+    './games/suika/src/game.js',
+    './games/suika/src/scores.js',
+    './games/suika/src/config/fruits.js',
+    './games/suika/src/entities/Fruit.js',
+    './games/suika/src/entities/FruitFactory.js',
+    './games/suika/src/effects/Particles.js',
+    ...['01-cherry', '02-strawberry', '03-grape', '04-dekopon', '05-lemon',
+        '06-apple', '07-pear', '08-peach', '09-pineapple', '10-melon', '11-watermelon']
+        .map(name => './games/suika/assets/images/' + name + '.png'),
 ];
 
 // Cross-origin hosts whose static assets are safe to cache for offline boot.
@@ -54,7 +74,7 @@ self.addEventListener('activate', (event) => {
         caches.keys()
             .then((keys) => Promise.all(
                 keys
-                    .filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE)
+                    .filter((key) => (key.startsWith('mykk-shell-') || key.startsWith('mykk-runtime-')) && key !== SHELL_CACHE && key !== RUNTIME_CACHE)
                     .map((key) => caches.delete(key))
             ))
             .then(() => self.clients.claim())

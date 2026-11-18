@@ -24,6 +24,11 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Validate physics, saves, and database policies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+
       - name: Build static site
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
