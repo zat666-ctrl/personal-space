@@ -1,11 +1,12 @@
 .games-nav-link {
-    width: auto;
-    min-height: 44px;
-    padding: 0 12px;
-    gap: 6px;
-    font-size: 13px;
     text-decoration: none;
-    white-space: nowrap;
+}
+
+.games-nav-link span {
+    font-size: 18px;
+    line-height: 1;
+    filter: grayscale(1);
+    opacity: 0.8;
 }
 
 .personal-space-auth-form {

@@ -17,7 +17,7 @@
  * purged on activate.
  */
 
-const CACHE_VERSION = 'personal-space-v6-suika';
+const CACHE_VERSION = 'personal-space-v7-suika-icon';
 const SHELL_CACHE = 'mykk-shell-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'mykk-runtime-' + CACHE_VERSION;
 
